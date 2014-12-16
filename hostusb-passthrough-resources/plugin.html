@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+<script type="text/javascript">
+
+var api = parent.pluginApi("hostusb-passthrough");
+var conf = api.configObject();
+api.options({allowedMessageOrigins: conf.allowedOrigins});
+
+var token = "hostusb-passthrough";
+
+var vm = null;
+var host = null;
+var agent = null;
+var vmHostUSBWindow = null;
+
+function setAccessible(accessible) {
+    api.setTabAccessible(token, accessible);
+}
+
+function getEngineJson(url, cfunc) {
+    xmlhttp = new XMLHttpRequest();
+    xmlhttp.onreadystatechange = function() {
+        if (xmlhttp.readyState == 4 && xmlhttp.status == 200) {
+            cfunc(JSON.parse(xmlhttp.responseText));
+        }
+    }
+    xmlhttp.open("GET", conf.engine_api_url + url, true);
+    xmlhttp.setRequestHeader("Accept", "application/json");
+    xmlhttp.setRequestHeader("Prefer", "persistent-auth");
+    xmlhttp.send();
+}
+
+function searchVM() {
+    getEngineJson(
+        "/vms/" + vm,
+        function (obj) {
+            if (obj.status.state == "up"
+                && obj.placement_policy.affinity == "pinned") {
+                setAccessible(true);
+                host = obj.host.id;
+            }
+        }
+    );
+}
+
+function searchVMsOnHost(hostname) {
+    var vms = {};
+    getEngineJson(
+        "/vms?search=host%3D" + hostname,
+        function (obj) {
+            obj.vm.map(function (n) {vms[n.id] = n.name;});
+            vmHostUSBWindow.update(conf.agent_proxy, agent, vm, vms);
+        }
+    );
+}
+
+function updateHostUSB() {
+    getEngineJson(
+        "/hosts/" + host,
+        function (obj) {
+            agent = obj.address + ":" + conf.agent_port;
+            searchVMsOnHost(obj.name);
+        }
+    );
+}
+
+api.register({
+    UiInit: function() {
+        api.addSubTab("VirtualMachine", "Host USB",
+                      token, conf.tab_content_url);
+        setAccessible(false);
+    },
+    VirtualMachineSelectionChange: function() {
+        setAccessible(false);
+        if (arguments.length == 1) {
+            vm = arguments[0] && arguments[0].id;
+            searchVM();
+        } else {
+            vm = null;
+            host = null;
+            vmHostUSBWindow = null;
+        }
+    },
+    MessageReceived: function(data, sourceWindow) {
+        switch (data) {
+        case "ready":
+            vmHostUSBWindow = sourceWindow;
+            updateHostUSB();
+            break;
+        }
+    },
+});
+api.ready();
+</script>
+</head>
+<body>
+</body>
+</html>

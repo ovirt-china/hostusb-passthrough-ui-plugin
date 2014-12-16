@@ -1,0 +1,12 @@
+{
+    "name": "hostusb-passthrough",
+    "url": "plugin/hostusb-passthrough/plugin.html",
+    "config": {
+        "engine_api_url": "/ovirt-engine/api",
+        "agent_proxy": "/cgi-bin/plugin-proxy.cgi",
+        "agent_port": "10086",
+        "tab_content_url": "plugin/hostusb-passthrough/hostusb-passthrough.html",
+        "allowedOrigins": ["https://engine_host"]
+    },
+    "resourcePath": "hostusb-passthrough-resources"
+}

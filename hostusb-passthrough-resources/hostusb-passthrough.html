@@ -1,0 +1,120 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" type="text/css" href="css/patternfly.min.css" />
+<script type="text/javascript" src="js/patternfly.min.js"></script>
+</head>
+<body>
+<table id="hostusb" class="datatable table table-striped table-bordered table-hover">
+</table>
+<script type='text/javascript'>
+var agent_proxy = null;
+var agent = null;
+var vm_id = null;
+var vms_dict = null;
+
+function jp(uri) {
+    var script = document.createElement("script");
+    var url = "http://" + agent + uri;
+    if (agent_proxy != null) {
+        url = agent_proxy + "?url=" + encodeURIComponent(url);
+    }
+    script.setAttribute("src", url);
+    script.setAttribute("type", "text/javascript");
+    document.getElementsByTagName('head')[0].appendChild(script);
+}
+
+function toLine(arr, is_header) {
+    var ret = "<tr>\n";
+    var open = is_header?"<th>":"<td>";
+    var close = is_header?"</th>":"</td>";
+    for (var i = 0; i < arr.length; i++) {
+        ret += open + arr[i] + close + "\n";
+    }
+    ret += "</tr>\n";
+    return ret;
+}
+
+function headerLine() {
+    return toLine(
+        ["Name", "Parent", "Vendor", "Product", "Bus", "Device", "VM", "Action"],
+        true);
+}
+
+function vmOrNone(vm, devname) {
+    label = (vm == null)?"None":vms_dict[vm];
+    return "<span id=\"label_" + devname + "\">" + label + "</span>";
+}
+
+function attached(vm, devname) {
+    btn = document.getElementById("action_" + devname);
+    btn.setAttribute("class", "btn btn-danger");
+    btn.setAttribute("onclick", "detach('" + vm + "', '" + devname + "')");
+    btn.innerHTML = "Detach";
+    label = document.getElementById("label_" + devname);
+    label.innerHTML = vms_dict[vm];
+}
+
+function detached(vm, devname) {
+    btn = document.getElementById("action_" + devname);
+    btn.setAttribute("class", "btn btn-primary");
+    btn.setAttribute("onclick", "attach('" + vm + "', '" + devname + "')");
+    btn.innerHTML = "Attach";
+    label = document.getElementById("label_" + devname);
+    label.innerHTML = "None";
+}
+
+function attach(vm, devname) {
+    jp("/attach.js?vmId=" + vm + "&devname=" + devname);
+}
+
+function detach(vm, devname) {
+    jp("/detach.js?vmId=" + vm + "&devname=" + devname);
+}
+
+function getAction(vm, devname) {
+    if (vm == null) {
+        return "<button id=\"action_" + devname + "\" type=\"button\" class=\"btn btn-primary\" onclick=\"attach('" + vm_id + "', '" + devname + "')\">Attach</button>";
+    } else if (vm == vm_id) {
+        return "<button id=\"action_" + devname + "\" type=\"button\" class=\"btn btn-danger\" onclick=\"detach('" + vm_id + "', '" + devname + "')\">Detach</button>";
+    } else {
+        return "<button type=\"button\" disabled=\"true\">Disabled</button>";
+    }
+}
+
+function devToLine(dev) {
+    return toLine(
+        [
+            dev.name,
+            dev.parent,
+            dev.vendor + "(" + dev.vendor_id + ")",
+            dev.product + "(" + dev.product_id + ")",
+            dev.bus,
+            dev.device,
+            vmOrNone(dev.vm, dev.name),
+            getAction(dev.vm, dev.name)
+        ],
+        false);
+}
+
+function AllListed(devices) {
+    var content = headerLine();
+    for (var i = 0; i < devices.length; i++) {
+        content += devToLine(devices[i]);
+    }
+    document.getElementById('hostusb').innerHTML = content;
+    $("hostusb").dataTable();
+}
+
+parent.postMessage('ready', '*');
+var update = function(proxy, ag, vm, vms) {
+    agent_proxy = proxy;
+    agent = ag;
+    vm_id = vm;
+    vms_dict = vms;
+    jp("/listdev.js");
+};
+</script>
+</body>
+</html>
